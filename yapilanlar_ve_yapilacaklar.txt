@@ -1,0 +1,13 @@
+Versiyon 1.0 (İş Derlemesi 290326,1936)
+
+[Yapılanlar]
+- Türkçe ana sayfa ve bugünün plan kartı eklendi. (Versiyon 1.0 / İş Derlemesi 290326,1936)
+- Günlük antrenman ekranı, set tamamlama akışı ve süre sayacı eklendi. (Versiyon 1.0 / İş Derlemesi 290326,1936)
+- Hareket kütüphanesi ve başlangıç seviyesine uygun anlatım blokları eklendi. (Versiyon 1.0 / İş Derlemesi 290326,1936)
+- Haftalık tamamlama, streak, rozetler ve ilerleme ekranı eklendi. (Versiyon 1.0 / İş Derlemesi 290326,1936)
+- Sürüm notları ekranı ve ayarlar ekranında sürüm bilgisi eklendi. (Versiyon 1.0 / İş Derlemesi 290326,1936)
+
+[Yapılacaklar]
+- Yerel hareket görselleri ve kısa video klipleri optimize edilerek eklenecek. (Planlanan: Versiyon 1.1)
+- Hatırlatıcı bildirimler ve veri yedekleme seçeneği açılacak. (Planlanan: Versiyon 1.1)
+- İleri seviye özel rutin oluşturma ve sağlık entegrasyonları genişletilecek. (Planlanan: Versiyon 1.2)
