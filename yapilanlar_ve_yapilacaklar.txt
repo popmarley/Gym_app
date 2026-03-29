@@ -1,44 +1,42 @@
-Sürüm 1.6 (Derleme 300326,0308)
+Sürüm 1.7 (Derleme 300326,0417)
 
 [Tamamlananlar]
-- Temel antrenman akışı, set tamamlama mantığı ve ilerleme ekranları kuruldu. (Sürüm 1.0)
-- Haftalık tamamlama yüzdesi, devam zinciri ve görünür ilerleme kartları eklendi. (Sürüm 1.0)
-- Ana ekrandan önerilen antrenmanı açma ve güne göre program gösterme işlevi eklendi. (Sürüm 1.0)
-- Uygulama içi sürüm bilgisi, sürüm notları ekranı ve proje kayıt standardı oluşturuldu. (Sürüm 1.0)
+- Temel antrenman akışı, set tamamlama mantığı, haftalık plan ve ilerleme kartları kuruldu. (Sürüm 1.0)
 - Gün seçme işlevi eklendi; antrenman ekranından haftanın farklı günlerine doğrudan geçiş sağlandı. (Sürüm 1.1)
 - Arayüz metinleri Türkçeleştirildi ve ilk bozuk ifadeler temizlendi. (Sürüm 1.1)
-- Günlük antrenman akışı tek dokunuşla set tamamlama mantığıyla geliştirildi; set işaretlenince dinlenme sayacı başlatılabilir hale getirildi. (Sürüm 1.1)
-- Sayaç tarafında başlat, duraklat, yeniden başlat ve sıfırla işlevleri tamamlandı. (Sürüm 1.1)
-- Düşük medya modu ile pil dostu kullanım hedefi desteklendi; uygulama çevrimdışı çalışabilecek hafif veri yapısıyla korundu. (Sürüm 1.1)
+- Düşük medya modu ile pil dostu kullanım hedefi desteklendi; çevrimdışı çalışabilecek hafif veri yapısı korundu. (Sürüm 1.1)
 - `D:\Android_Studio_Project\Gym_app\icon.png` görseli launcher ikonu olarak uygulamaya bağlandı. (Sürüm 1.2)
-- Hareket anlatımları daha profesyonel, daha detaylı ve koç diliyle anlaşılır olacak şekilde revize edildi. (Sürüm 1.2)
-- Kullanıcı profiline uygun 4 ana gün + 1 opsiyonel gün kas kazanımı programı yeniden değerlendirildi ve ana bileşik hareketlerin yükü dengelendi. (Sürüm 1.2)
-- Yapılan her maddenin yanında ilgili sürüm bilgisi açıkça yazıldı. (Sürüm 1.2)
-- Kişiye özel antrenman rehberi temel alınarak başlangıç, orta ve ileri düzey için Full Body ve Bölgesel program seçenekleri uygulamaya eklendi. (Sürüm 1.3)
+- Hareket anlatımları daha profesyonel ve daha anlaşılır bir koç diliyle revize edildi. (Sürüm 1.2)
+- Kullanıcı profiline uygun önerilen program yeniden dengelendi; ana bileşik hareketlerin yük dağılımı iyileştirildi. (Sürüm 1.2)
+- Başlangıç, orta ve ileri düzey için Full Body ve Bölgesel program seçenekleri uygulamaya eklendi. (Sürüm 1.3)
 - Ayarlara aktif program seçimi eklendi; seçilen düzey ve program tipine göre haftalık plan otomatik değişir hale getirildi. (Sürüm 1.3)
-- Bugün ekranındaki gereksiz sürüm kartı kaldırıldı; sürüm bilgisi yalnızca ayarlar ekranında bırakıldı. (Sürüm 1.3)
-- Android otomatik yedekleme kuralları açıldı; aynı Google hesabında uygulama yeniden kurulduğunda verilerin geri yüklenebilmesi için kayıt verisi yedeğe dahil edildi. (Sürüm 1.3)
-- CS2 esinli tecrübe sistemi eklendi; günlük giriş XP'si, kaçırılan gün cezaları, 40 seviye, 18 rütbe ve seviye 40 hizmet rozeti uygulamaya işlendi. (Sürüm 1.3)
-- İlerleme ekranına tecrübe günlüğü, seviye-rütbe özeti ve hizmet rozeti bilgisi eklendi. (Sürüm 1.3)
-- Set tamamlama kartına geri alma işlevi eklendi; yanlış işaretlenen setler tek tek eksiltilebiliyor. (Sürüm 1.4)
-- Gün seçimi tarih bazlı etiketlerle güncellendi; aynı haftanın gerçek tarihleri gösteriliyor ve hafta değişince ilerleme temiz başlangıç mantığıyla yenileniyor. (Sürüm 1.4)
-- İlk kurulum için kişisel profil ayarlama ekranı eklendi; yaş, cinsiyet, hedef, güncel kilo, hedef kilo ve başlangıç programı kullanıcı tarafından seçilebiliyor. (Sürüm 1.4)
-- Kişisel profil kartı ayarlarda dinamik hale getirildi; sabit örnek metin kaldırıldı ve düzenleme girişi eklendi. (Sürüm 1.4)
-- Genel sayaç bölümü kaldırıldı; süre takibi yalnızca plank gibi gerçekten gerekli hareket kartlarının içine alındı. (Sürüm 1.4)
-- Dinlenme günlerinde bugüne özel ilerleme ve tecrübe vurguları sadeleştirildi; gereksiz alanlar ekrandan kaldırıldı. (Sürüm 1.4)
-- Sistem geri tuşu ve üst çubuk geri davranışı düzenlendi; iç ekranlardan uygulamanın ana menüsüne dönüş akışı kuruldu. (Sürüm 1.4)
-- Kişisel program düzenleyici eklendi; kullanıcı önerilen planı varsayılan olarak korurken isterse günleri ve hareketleri kendine göre değiştirebilir hale geldi. (Sürüm 1.5)
+- Android otomatik yedekleme kuralları açıldı; aynı Google hesabında veri geri yükleme desteği etkinleştirildi. (Sürüm 1.3)
+- CS2 esinli tecrübe sistemi eklendi; günlük giriş XP'si, kaçırılan gün cezaları, 40 seviye, 18 rütbe ve hizmet rozeti işlendi. (Sürüm 1.3)
+- Set tamamlama kartına set geri alma işlevi eklendi; yanlış işaretlenen setler tek tek geri alınabilir hale getirildi. (Sürüm 1.4)
+- İlk kurulum için kişisel profil ayarlama ekranı eklendi; yaş, cinsiyet, hedef, güncel kilo, hedef kilo ve başlangıç programı kullanıcı tarafından seçilebilir oldu. (Sürüm 1.4)
+- Genel sayaç bölümü kaldırıldı; süre takibi yalnızca gerçekten gerekli hareket kartlarının içine alındı. (Sürüm 1.4)
+- Dinlenme günlerinde gereksiz ilerleme ve tecrübe vurguları sadeleştirildi. (Sürüm 1.4)
+- Sistem geri tuşu ve üst çubuk geri davranışı düzenlendi; iç ekranlardan ana menüye dönüş akışı kuruldu. (Sürüm 1.4)
+- Kişisel program düzenleyici eklendi; kullanıcı önerilen planı korurken isterse günleri ve hareketleri kendine göre değiştirebilir hale geldi. (Sürüm 1.5)
 - Program ekranında her hareketin yanında ağırlıklı çalıştırdığı bölge bilgisi görünür hale getirildi. (Sürüm 1.5)
-- CS2 seviye ve rütbe görselleri yerel asset olarak entegre edildi; rütbe adları Türkçeleştirildi ve ilerleme ekranına taşındı. (Sürüm 1.5)
-- Açılmayan başarımlar ekranı eklendi; Steam benzeri mantıkla ilerleme çubukları üzerinden hangi başarımın ne kadar kaldığı görülebilir hale geldi. (Sürüm 1.6)
+- CS2 seviye ve rütbe görselleri yerel asset olarak entegre edildi; rütbe adları Türkçeleştirildi. (Sürüm 1.5)
+- Açılmayan başarımlar ekranı eklendi; Steam benzeri mantıkla hangi başarımın ne kadar kaldığı görülebilir hale getirildi. (Sürüm 1.6)
 - Ayarlar butonu tüm ana menü ekranlarına ve detay ekranlarına taşındı. (Sürüm 1.6)
-- Ayarlardaki uygulama bilgisi kartı sadeleştirildi; yalnızca sürüm, geliştirici ve sürüm notu girişi bırakıldı. (Sürüm 1.6)
 - Sürüm notları sürüm sürüm sayfalı yapıya dönüştürüldü; her sayfaya tarih bilgisi eklendi. (Sürüm 1.6)
-- İlerleme ekranında seviye ve rütbe görünümü küçük görsel + tek satır bilgi yapısına çevrildi. (Sürüm 1.6)
+- İlerleme ekranında seviye ve rütbe görünümü küçük görsel ve tek satır bilgi yapısına çevrildi. (Sürüm 1.6)
 - Kişisel program düzenleme ekranı haftanın günlerine göre tekrar eden mantıkla sadeleştirildi; hareket ekleme listesi bölgelere göre gruplanarak yeniden düzenlendi. (Sürüm 1.6)
-- Antrenman ekranına genel antrenman sayacı eklendi; sayaç başlat, durdur ve sıfırla işlevleriyle birlikte çalışıyor. (Sürüm 1.6)
-- Genel antrenman sayacı arka planda düşük öncelikli foreground bildirimle çalışacak şekilde entegre edildi; yalnızca sayaç aktifken servis açık kalıyor. (Sürüm 1.6)
-- Özet kartındaki `Streak` ifadesi `Seri` olarak Türkçeleştirildi. (Sürüm 1.6)
+- Antrenman ekranına genel antrenman sayacı eklendi; sayaç arka planda düşük öncelikli bildirimle çalışacak şekilde optimize edildi. (Sürüm 1.6)
+- Ölçüm geçmişi eklendi; göğüs, bel, kalça, kol, bacak ve omuz verileri tarih bazlı saklanır hale getirildi. (Sürüm 1.7)
+- İlerleme ekranına ölçüm analizi ve grafik alanı eklendi; kullanıcı ilk kayıt ile son kayıt arasındaki farkı görebilir hale geldi. (Sürüm 1.7)
+- Ayarlardaki kilo değiştirme adımı kaldırıldı; kilo ve ölçü güncellemesi yalnızca profil düzenleme ekranına taşındı. (Sürüm 1.7)
+- Profil düzenleme ekranına görünür `Geri dön` butonu eklendi. (Sürüm 1.7)
+- Ayarlar ekranından geri dönüldüğünde kullanıcı son bulunduğu menüye geri götürülür hale getirildi. (Sürüm 1.7)
+- Son set tamamlandığında antrenman otomatik olarak tamamlanmış sayılır hale getirildi. (Sürüm 1.7)
+- Yeni seviye, rozet veya başarım açıldığında uygulama içinde sağ üstte kayan kısa tebrik bildirimi eklendi. (Sürüm 1.7)
+- Etkinlik günlüğü yeniden tasarlandı; son 20 işlem gün bazlı sayfalama ile ve her sayfada 5 kayıt olacak şekilde gösteriliyor. (Sürüm 1.7)
+- Rozet kartları mobil uyumlu sabit boyutlu yapıya taşındı; uzun açıklamalar dokunarak açılabilir hale getirildi. (Sürüm 1.7)
+- Bugün ekranındaki aktif program kartına küçük seviye ve rütbe görselleri eklendi. (Sürüm 1.7)
+- Kart görünümü, vurgu alanları ve bilgi blokları görsel olarak güçlendirildi; düz metin hissi azaltıldı. (Sürüm 1.7)
 
 [İş Analizi Kontrolü]
 - Türkçe, sade ve pil dostu kullanım hedefi uygulama içinde karşılandı. (Durum: Tamamlandı)
@@ -48,33 +46,22 @@ Sürüm 1.6 (Derleme 300326,0308)
 - Birden fazla program türü ve seviyeye göre seçim yapılması ihtiyacı karşılandı. (Durum: Tamamlandı)
 - İlk kurulumda kişisel profil toplama ihtiyacı karşılandı. (Durum: Tamamlandı)
 - Otomatik yedekleme ve geri yükleme altyapısı Android tarafında açıldı. (Durum: Tamamlandı)
-- Kullanıcıyı motive edecek rütbe, seviye, rozet ve başarımlar sistemi karşılandı. (Durum: Tamamlandı)
+- Kullanıcıyı motive edecek rütbe, seviye, rozet ve başarım sistemi karşılandı. (Durum: Tamamlandı)
+- Bölgesel vücut ölçülerinin girilmesi, saklanması ve grafikle analiz edilmesi ihtiyacı karşılandı. (Durum: Tamamlandı)
 - Arka planda çalışırken kullanıcıya görünen antrenman sayacı akışı eklendi. (Durum: Tamamlandı)
 - Gerçek hareket görselleri veya kısa videolar henüz eklenmedi; yalnızca altyapı ve yer tutucu alan hazır. (Durum: Kısmen tamamlandı)
-- Hatırlatıcı bildirimler henüz eklenmedi. (Durum: Yapılmadı)
+- Kütüphane ekranında hareketlerin kas bölgesine göre gruplu görünümü henüz eklenmedi. (Durum: Yapılmadı)
+- Push bildirimleri ve antrenman hatırlatmaları henüz eklenmedi. (Durum: Yapılmadı)
 - Sağlık entegrasyonları, gelişmiş dışa aktarma ve abonelik akışları henüz eklenmedi. (Durum: Yapılmadı)
 
 [Program Değerlendirmesi]
-- 26 yaşında, 59 kg, düzenli spor yapan ama kilo almakta zorlanan bir kullanıcı için doğrudan ağır bölgesel yapıdan başlamak yerine rehberin önerdiği gibi Başlangıç Full Body daha mantıklıdır.
-- Bunun temel nedeni, aynı temel hareketleri haftada daha sık pratik etmeyi sağlaması ve teknik gelişimi hızlandırmasıdır.
+- 26 yaşında, 59 kg, düzenli spor yapan ama kilo almakta zorlanan bir kullanıcı için doğrudan ağır bölgesel yapıdan başlamak yerine rehberin önerdiği Full Body veya kontrollü orta düzey bölgesel yapı daha mantıklıdır.
 - Kilo alma hedefinde asıl darboğaz çoğu zaman split seçimi değil, toplam enerji alımının yetersiz kalmasıdır; bu nedenle uygulama içinde kalori artırma kuralı görünür tutuldu.
-- Orta seviyeye geçildiğinde kullanıcı isterse Orta Full Body, isterse Orta Bölgesel split'e geçebilir; bu seçim ayarlardan yapılabilir.
-- İleri düzey seçenekler rehbere uygun şekilde uygulamaya işlendi; ancak teknik ve toparlanma yeterli değilse bu düzeylere erken geçmek doğru değildir.
+- Orta düzeyden sonra kullanıcı isterse Full Body ya da Bölgesel seçeneğe geçebilir; bu seçim ayarlardan yapılabilir.
+- Kişisel program düzenleyici sayesinde kullanıcı isterse önerilen şablonu korur, isterse kendi gün ve hareket dağılımını kurar.
 
 [Yapılacaklar]
-- Gerçek hareket görselleri ve optimize kısa videolar kartlara eklenecek. (Planlanan: Sürüm 1.7)
-- Push bildirimleri ve antrenman hatırlatmaları eklenecek. (Planlanan: Sürüm 1.7)
-- Dışa aktarma, daha zengin grafikler ve sağlık entegrasyonları genişletilecek. (Planlanan: Sürüm 1.7+)
--kütüphane kısmında direkt gruplandırılmış şekilde de göstersin. kol ahreketleri göğüs hareketleri gibi
--daha fazla rozet ve başarım eklenmeli
--bölgesel alan ölçülerini de girebilmeli kullanıcı düzenleyebilmeli daha sonrada ona göre de kilosuna ne biliyim kullanıcının verdiği bilgilere göre bir analiz grafik alanı olmalı ki kullanıcı ne zaman kaç günde nereden nereye geldiğini falan görebilsin. yani detaylı bir analiz alanı da olmalı.
--ayarlar kısmında kilo alanını değiştirme alanını kaldıralım zaten profili düzenle alanında yer alıyor.
--profili düzenle alanına geri gitme butonu koyalım
--ayarlar menüsünü açtıktan sonra geri tusuna basınca en son hangi menüdeyse ona dönmeli şuan direkt bugün menüsüne yönelndiriyor.
--antrenman menüsünde eğer tüm yapılacaklar bittiyse otomatik olarak antrenman tamamlandı olsun.
--eğer yeni bir başarım,rozet ya da seviye atladıysa kullanıcı uygulama içinde sağ üstte 5sn kaybolan geriye akmalı bir bildirim sistemi de olmalı. tebrikler şu şu oldu diye tarzında
--ilerlerme ve tecrübe günlüğü kısmındaki loglar günlere özel sayfalama şeklinde son 20 işlemi göstermeli ve sayfalama olmalı her sayfada 5 tane göstermeli. en son yapılan etkinlik başta göstermeli
--ilerleme menüsündeki rozetler ve başarımlar kısmındaki kazanılan başarımları yazan kartlar tam mobil değil yazının uzunluguna göre büyük falan oluyor kartların hepsi aynı boyutta olmalı. gerekiyorsa belli bir karakter uzunlugundan sonra tıklayıp göstersin ne yazdıgını kullancıya
--tasarımsal olarak daha görsel olabilir şu an uygulamanın teması genel olarak düz yazı blog şeklinde gibi. bunu biraz daha geliştirebiliriz.
--bugün menüsünde aktif programın altında gösterilen seviye ve rütbe yazısının yanında oan karsılık gelen seviye ve rütbe görsellerini küçük şekilde göstersin.
-
+- Kütüphane ekranında hareketleri göğüs, sırt, omuz, kol ve bacak gibi gruplar altında listelemek. (Planlanan: Sürüm 1.8)
+- Gerçek hareket görselleri ve optimize kısa videoları kartlara eklemek. (Planlanan: Sürüm 1.8)
+- Push bildirimleri ve antrenman hatırlatmalarını eklemek. (Planlanan: Sürüm 1.8)
+- Dışa aktarma, daha zengin grafikler ve sağlık entegrasyonlarını genişletmek. (Planlanan: Sürüm 1.8+)

@@ -7,8 +7,16 @@ import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,12 +24,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -29,8 +40,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoGraph
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -43,6 +57,7 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.Whatshot
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -80,17 +95,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import androidx.core.content.ContextCompat
+import java.time.LocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -104,6 +122,13 @@ private const val SCREEN_RELEASE_NOTES = "release_notes"
 private const val SCREEN_PROGRAM_EDITOR = "program_editor"
 private const val SCREEN_ACHIEVEMENTS = "achievements"
 
+private data class InAppNotice(
+    val title: String,
+    val detail: String,
+    val assetPath: String? = null,
+    val token: Long = System.currentTimeMillis()
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GymFlowApp() {
@@ -114,6 +139,7 @@ fun GymFlowApp() {
     }
     var persistedState by remember { mutableStateOf(initialState) }
     var currentScreen by rememberSaveable { mutableStateOf(SCREEN_TODAY) }
+    var settingsReturnScreen by rememberSaveable { mutableStateOf(SCREEN_TODAY) }
     var selectedWorkoutId by rememberSaveable { mutableStateOf(recommendedWorkout(initialState).id) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var customExerciseQuery by rememberSaveable { mutableStateOf("") }
@@ -121,6 +147,7 @@ fun GymFlowApp() {
     var showingProfileSetup by rememberSaveable { mutableStateOf(!initialState.profileCompleted) }
     var pendingTimerDayId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingTimerDayTitle by rememberSaveable { mutableStateOf("") }
+    var inAppNotice by remember { mutableStateOf<InAppNotice?>(null) }
     val expandedCards = remember { mutableStateMapOf<String, Boolean>() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -128,6 +155,14 @@ fun GymFlowApp() {
 
     LaunchedEffect(Unit) {
         WorkoutTimerController.sync(context)
+    }
+
+    LaunchedEffect(inAppNotice?.token) {
+        val currentNotice = inAppNotice ?: return@LaunchedEffect
+        delay(5_000)
+        if (inAppNotice?.token == currentNotice.token) {
+            inAppNotice = null
+        }
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -147,7 +182,8 @@ fun GymFlowApp() {
     }
 
     fun persist(update: (PersistedState) -> PersistedState): PersistedState {
-        val newState = update(persistedState).normalizeForCurrentWeek().withAchievementUnlocks()
+        val oldState = persistedState
+        val newState = update(oldState).normalizeForCurrentWeek().withAchievementUnlocks()
         persistedState = newState
         val currentPlanIds = workoutPlan(newState).map { it.id }.toSet()
         if (selectedWorkoutId !in currentPlanIds) {
@@ -158,6 +194,7 @@ fun GymFlowApp() {
             selectedCustomDayId = customProgramTemplate(newState).first().id
         }
         store.saveState(newState)
+        inAppNotice = buildNoticeForStateChange(oldState, newState)
         return newState
     }
 
@@ -183,6 +220,11 @@ fun GymFlowApp() {
         currentScreen = SCREEN_WORKOUT
     }
 
+    fun openSettingsFromCurrent() {
+        settingsReturnScreen = currentScreen
+        currentScreen = SCREEN_SETTINGS
+    }
+
     val normalizedTodayState = persistedState.normalizeForCurrentWeek()
     val activeWorkout = workoutById(selectedWorkoutId, normalizedTodayState)
     val todayRecommended = recommendedWorkout(normalizedTodayState)
@@ -194,7 +236,8 @@ fun GymFlowApp() {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             ProfileSetupScreen(
                 state = persistedState,
-                onSaveProfile = { age, gender, goal, currentWeight, targetWeight, style, level ->
+                onBack = if (persistedState.profileCompleted) ({ showingProfileSetup = false }) else null,
+                onSaveProfile = { age, gender, goal, currentWeight, targetWeight, measurements, style, level ->
                     val updated = persist {
                         it.completeProfile(
                             age = age,
@@ -202,12 +245,12 @@ fun GymFlowApp() {
                             goalLabel = goal,
                             currentWeightKg = currentWeight,
                             targetWeightKg = targetWeight,
+                            measurements = measurements,
                             style = style,
                             level = level
                         )
                     }
                     selectedWorkoutId = recommendedWorkout(updated).id
-                    currentScreen = SCREEN_TODAY
                     showingProfileSetup = false
                     WorkoutTimerController.reset(context)
                 }
@@ -218,6 +261,7 @@ fun GymFlowApp() {
 
     BackHandler(enabled = currentScreen != SCREEN_TODAY) {
         when (currentScreen) {
+            SCREEN_SETTINGS -> currentScreen = settingsReturnScreen
             SCREEN_RELEASE_NOTES, SCREEN_PROGRAM_EDITOR -> currentScreen = SCREEN_SETTINGS
             SCREEN_ACHIEVEMENTS -> currentScreen = SCREEN_PROGRESS
             else -> openMain(SCREEN_TODAY)
@@ -237,6 +281,7 @@ fun GymFlowApp() {
                     if (showBack) {
                         IconButton(onClick = {
                             when (currentScreen) {
+                                SCREEN_SETTINGS -> currentScreen = settingsReturnScreen
                                 SCREEN_RELEASE_NOTES, SCREEN_PROGRAM_EDITOR -> currentScreen = SCREEN_SETTINGS
                                 SCREEN_ACHIEVEMENTS -> currentScreen = SCREEN_PROGRESS
                                 else -> openMain(SCREEN_TODAY)
@@ -248,7 +293,7 @@ fun GymFlowApp() {
                 },
                 actions = {
                     if (currentScreen != SCREEN_SETTINGS) {
-                        IconButton(onClick = { currentScreen = SCREEN_SETTINGS }) {
+                        IconButton(onClick = { openSettingsFromCurrent() }) {
                             Icon(Icons.Outlined.Settings, contentDescription = "Ayarlar")
                         }
                     }
@@ -270,7 +315,7 @@ fun GymFlowApp() {
             }
         }
     ) { paddingValues ->
-        Surface(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             when (currentScreen) {
                 SCREEN_TODAY -> TodayScreen(paddingValues, normalizedTodayState, todayRecommended, ::openWorkout)
                 SCREEN_PLAN -> ProgramScreen(paddingValues, normalizedTodayState, ::openWorkout)
@@ -297,7 +342,6 @@ fun GymFlowApp() {
                 )
                 SCREEN_SETTINGS -> SettingsScreen(
                     paddingValues, normalizedTodayState,
-                    onAdjustWeight = { delta -> persist { it.adjustCurrentWeight(delta) } },
                     onSelectProgramStyle = { style ->
                         persist { it.selectProgramStyle(style) }
                         selectedWorkoutId = recommendedWorkout(persistedState).id
@@ -346,6 +390,7 @@ fun GymFlowApp() {
                     state = normalizedTodayState
                 )
             }
+            NoticeOverlay(notice = inAppNotice, modifier = Modifier.align(Alignment.TopEnd).padding(top = paddingValues.calculateTopPadding() + 10.dp, end = 16.dp))
         }
     }
 }
@@ -378,7 +423,8 @@ private fun screenTitle(screen: String, workoutTitle: String): String {
 @Composable
 private fun ProfileSetupScreen(
     state: PersistedState,
-    onSaveProfile: (Int, String, String, Double, Double, ProgramStyle, ProgramLevel) -> Unit
+    onBack: (() -> Unit)?,
+    onSaveProfile: (Int, String, String, Double, Double, BodyMeasurements, ProgramStyle, ProgramLevel) -> Unit
 ) {
     var age by rememberSaveable { mutableIntStateOf(state.age.coerceIn(13, 90)) }
     var currentWeight by rememberSaveable { mutableStateOf(state.currentWeightKg.coerceAtLeast(40.0)) }
@@ -387,9 +433,23 @@ private fun ProfileSetupScreen(
     var selectedGoal by rememberSaveable { mutableStateOf(state.goalLabel.ifBlank { "Kas / kütle artışı" }) }
     var selectedStyleName by rememberSaveable { mutableStateOf(state.programStyle().name) }
     var selectedLevelName by rememberSaveable { mutableStateOf(state.programLevel().name) }
+    var chestInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.chestCm)) }
+    var waistInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.waistCm)) }
+    var hipInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.hipCm)) }
+    var armInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.armCm)) }
+    var thighInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.thighCm)) }
+    var shoulderInput by rememberSaveable { mutableStateOf(decimalInputValue(state.currentMeasurements.shoulderCm)) }
 
     val selectedStyle = ProgramStyle.valueOf(selectedStyleName)
     val selectedLevel = ProgramLevel.valueOf(selectedLevelName)
+    val measurements = BodyMeasurements(
+        chestCm = decimalFromInput(chestInput),
+        waistCm = decimalFromInput(waistInput),
+        hipCm = decimalFromInput(hipInput),
+        armCm = decimalFromInput(armInput),
+        thighCm = decimalFromInput(thighInput),
+        shoulderCm = decimalFromInput(shoulderInput)
+    )
 
     LazyColumn(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
@@ -397,8 +457,19 @@ private fun ProfileSetupScreen(
     ) {
         item {
             SectionCard("Kişisel kurulum") {
-                Text("İlk programını sana göre ayarlayalım.", fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(8.dp))
+                if (onBack != null) {
+                    Text("Profilini ve hedeflerini güncelle.", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(onClick = onBack, modifier = Modifier.widthIn(min = 140.dp)) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Geri dön", maxLines = 1)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    Text("İlk programını sana göre ayarlayalım.", fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Text("Bu seçimleri daha sonra ayarlardan yeniden düzenleyebilirsin.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -459,6 +530,23 @@ private fun ProfileSetupScreen(
             }
         }
         item {
+            SectionCard("Bölgesel ölçüler") {
+                Text("Ölçülerini şimdi girersen analiz alanı gelişimini gün gün gösterir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                MeasurementInputField(label = "Göğüs", value = chestInput, onValueChange = { chestInput = sanitizeDecimalInput(it) })
+                Spacer(modifier = Modifier.height(10.dp))
+                MeasurementInputField(label = "Bel", value = waistInput, onValueChange = { waistInput = sanitizeDecimalInput(it) })
+                Spacer(modifier = Modifier.height(10.dp))
+                MeasurementInputField(label = "Kalça", value = hipInput, onValueChange = { hipInput = sanitizeDecimalInput(it) })
+                Spacer(modifier = Modifier.height(10.dp))
+                MeasurementInputField(label = "Kol", value = armInput, onValueChange = { armInput = sanitizeDecimalInput(it) })
+                Spacer(modifier = Modifier.height(10.dp))
+                MeasurementInputField(label = "Bacak", value = thighInput, onValueChange = { thighInput = sanitizeDecimalInput(it) })
+                Spacer(modifier = Modifier.height(10.dp))
+                MeasurementInputField(label = "Omuz", value = shoulderInput, onValueChange = { shoulderInput = sanitizeDecimalInput(it) })
+            }
+        }
+        item {
             SectionCard("Başlangıç programı") {
                 Text("Program tipi", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -476,16 +564,18 @@ private fun ProfileSetupScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("${selectedLevel.label} • ${selectedLevel.weekRange}", color = MaterialTheme.colorScheme.primary)
                 Text(selectedLevel.goalText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(selectedStyle.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
             Button(
                 onClick = {
-                    onSaveProfile(age, selectedGender, selectedGoal, currentWeight, targetWeight, selectedStyle, selectedLevel)
+                    onSaveProfile(age, selectedGender, selectedGoal, currentWeight, targetWeight, measurements, selectedStyle, selectedLevel)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Kurulumu tamamla")
+                Text(if (onBack == null) "Kurulumu tamamla" else "Profili kaydet")
             }
         }
     }
@@ -528,7 +618,21 @@ private fun TodayScreen(
                 Text(preset.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (showDailyProgress) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Seviye ${progress.level} • ${progress.rankName}", color = MaterialTheme.colorScheme.primary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        InlineIdentityPill(
+                            assetPath = "file:///android_asset/seviye/${progress.levelAssetIndex}.png",
+                            label = "Seviye ${progress.level}",
+                            modifier = Modifier.weight(1f)
+                        )
+                        InlineIdentityPill(
+                            assetPath = "file:///android_asset/rutbe/${progress.rankAssetIndex}.svg",
+                            label = progress.rankName,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
@@ -639,6 +743,7 @@ private fun WorkoutScreen(
     onResetWorkoutTimer: () -> Unit
 ) {
     val progress = dayCompletionRatio(day, state)
+    val workoutCompleted = isWorkoutCompleted(state, day)
     val elapsedMs = rememberVisibleElapsedMs(timerSnapshot, day.id)
     LazyColumn(
         contentPadding = screenPadding(paddingValues),
@@ -687,8 +792,8 @@ private fun WorkoutScreen(
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onCompleteWorkout, enabled = progress >= 1f, modifier = Modifier.weight(1f)) {
-                        Text("Antrenmanı tamamla")
+                    Button(onClick = onCompleteWorkout, enabled = progress >= 1f && !workoutCompleted, modifier = Modifier.weight(1f)) {
+                        Text(if (workoutCompleted) "Antrenman tamamlandı" else "Antrenmanı tamamla")
                     }
                     OutlinedButton(onClick = onResetDay, modifier = Modifier.weight(1f)) {
                         Text("Bugünü sıfırla")
@@ -760,6 +865,17 @@ private fun ProgressScreen(
     val lockedAchievements = achievements.filterNot { it.isUnlocked }
     val progress = profileProgress(state)
     val preset = selectedProgram(state)
+    val activityEntries = activityLogEntries(state).take(20)
+    var selectedMetricName by rememberSaveable { mutableStateOf(AnalysisMetric.WEIGHT.name) }
+    var selectedBadgeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var logPage by rememberSaveable(activityEntries.size) { mutableIntStateOf(0) }
+    val selectedMetric = AnalysisMetric.valueOf(selectedMetricName)
+    val chartPoints = analysisSeriesFor(state, selectedMetric)
+    val pageCount = (activityEntries.size.coerceAtLeast(1) + 4) / 5
+    val safeLogPage = logPage.coerceIn(0, pageCount - 1)
+    val visibleLogs = activityEntries.drop(safeLogPage * 5).take(5)
+    val selectedBadge = badges.firstOrNull { it.id == selectedBadgeId }
+
     LazyColumn(
         contentPadding = screenPadding(paddingValues),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -791,24 +907,53 @@ private fun ProgressScreen(
             }
         }
         item {
+            SectionCard("Analiz ve Ölçümler") {
+                Text("Aktif program: ${preset.title}", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Mevcut ağırlık: ${weightDisplay(state.currentWeightKg)} • Hedef: ${weightDisplay(state.targetWeightKg)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                OptionSelectorRow(
+                    options = AnalysisMetric.entries.map { metric -> metric.label to { selectedMetricName = metric.name } },
+                    selectedLabel = selectedMetric.label
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                if (chartPoints.isEmpty()) {
+                    Text("Henüz yeterli ölçüm verisi yok. Profil ekranından ölçülerini güncelle.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val firstValue = chartPoints.first().second
+                    val latestValue = chartPoints.last().second
+                    val delta = latestValue - firstValue
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        MetricCard("İlk kayıt", measurementDisplay(firstValue, selectedMetric.unit), Icons.Outlined.CalendarMonth, Modifier.weight(1f))
+                        MetricCard("Son kayıt", measurementDisplay(latestValue, selectedMetric.unit), Icons.Outlined.AutoGraph, Modifier.weight(1f))
+                        MetricCard("Fark", signedMeasurementDisplay(delta, selectedMetric.unit), Icons.Outlined.TrackChanges, Modifier.weight(1f))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TrendChart(points = chartPoints, metric = selectedMetric)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Toplam ${chartPoints.size} kayıt • İlk gün ${chartPoints.first().first.formatDateLabel()} • Son gün ${chartPoints.last().first.formatDateLabel()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Son ölçüler", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(8.dp))
+                MeasurementSnapshotGrid(state.currentMeasurements)
+            }
+        }
+        item {
             SectionCard("Rozetler ve Başarımlar") {
                 Text("${achievements.count { it.isUnlocked }} / ${achievements.size} başarım açıldı", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(8.dp))
                 if (badges.isEmpty()) {
                     Text("Rozetler antrenman tamamlandıkça açılacak.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.horizontalScroll(rememberScrollState())
-                    ) {
-                        badges.forEach { badge -> BadgeCard(badge) }
-                    }
+                    RewardGrid(badges = badges, onSelectBadge = { selectedBadgeId = it.id })
                 }
                 Spacer(modifier = Modifier.height(12.dp))
+                Text("Açılmayan başarımlar", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(8.dp))
                 if (lockedAchievements.isEmpty()) {
                     Text("Tüm başarımlar açıldı.", color = MaterialTheme.colorScheme.primary)
                 } else {
-                    Text("Açılmayan başarımlar", fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(8.dp))
                     lockedAchievements.take(3).forEach { achievement ->
                         AchievementPreviewRow(achievement)
@@ -836,37 +981,68 @@ private fun ProgressScreen(
             }
         }
         item {
-            SectionCard("Beslenme ve Kilo Takibi") {
-                Text("Aktif program: ${preset.title}", fontWeight = FontWeight.SemiBold)
-                Text("Mevcut ağırlık: ${weightDisplay(state.currentWeightKg)}")
-                Text("Hedef ağırlık: ${weightDisplay(state.targetWeightKg)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionCard("Beslenme ve Takip Notları") {
                 Text("Kalori ayarı: 14 gün artış yoksa günlük alıma yaklaşık 250-300 kcal ekle.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Protein hedefi: 95 - 130 g", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
-            SectionCard("Tecrübe Günlüğü") {
-                if (state.experienceLog.isEmpty()) {
-                    Text("Henüz XP kaydı oluşmadı.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionCard("Etkinlik Günlüğü") {
+                if (activityEntries.isEmpty()) {
+                    Text("Henüz etkinlik kaydı oluşmadı.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    state.experienceLog.takeLast(6).reversed().forEach { entry ->
-                        val sign = if (entry.amount >= 0) "+" else ""
-                        Text("${entry.recordedOn} • $sign${entry.amount} XP • ${entry.reason}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Son 20 işlem içinden sayfa ${safeLogPage + 1} / $pageCount",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { logPage = (safeLogPage - 1).coerceAtLeast(0) },
+                            enabled = safeLogPage > 0,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Outlined.ChevronLeft, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Önceki", maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = { logPage = (safeLogPage + 1).coerceAtMost(pageCount - 1) },
+                            enabled = safeLogPage < pageCount - 1,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Sonraki", maxLines = 1)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    visibleLogs.groupBy { it.recordedOn }.forEach { (date, entries) ->
+                        Text(date.toDisplayDate(), fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        entries.forEach { entry ->
+                            ActivityLogRow(entry)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
             }
         }
-        item {
-            SectionCard("Son Antrenmanlar") {
-                if (state.completedWorkouts.isEmpty()) {
-                    Text("Henüz tamamlanan antrenman kaydı yok.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    state.completedWorkouts.takeLast(6).reversed().forEach { workout ->
-                        Text("${workout.completedOn} • ${workout.workoutTitle} • ${workout.estimatedVolumeKg} kg", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+    }
+    if (selectedBadge != null) {
+        AlertDialog(
+            onDismissRequest = { selectedBadgeId = null },
+            confirmButton = {
+                TextButton(onClick = { selectedBadgeId = null }) {
+                    Text("Kapat")
                 }
-            }
-        }
+            },
+            title = { Text(selectedBadge.title) },
+            text = { Text(selectedBadge.description) }
+        )
     }
 }
 
@@ -874,7 +1050,6 @@ private fun ProgressScreen(
 private fun SettingsScreen(
     paddingValues: PaddingValues,
     state: PersistedState,
-    onAdjustWeight: (Double) -> Unit,
     onSelectProgramStyle: (ProgramStyle) -> Unit,
     onSelectProgramLevel: (ProgramLevel) -> Unit,
     onToggleMediaMode: () -> Unit,
@@ -899,8 +1074,13 @@ private fun SettingsScreen(
                 Text("Güncel ağırlık: ${weightDisplay(state.currentWeightKg)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Hedef ağırlık: ${weightDisplay(state.targetWeightKg)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Aktif hedef: ${state.goalLabel}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(12.dp))
-                WeightStepper(weight = state.currentWeightKg, onMinus = { onAdjustWeight(-0.5) }, onPlus = { onAdjustWeight(0.5) })
+                if (!state.currentMeasurements.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Son ölçüler: Bel ${measurementDisplay(state.currentMeasurements.waistCm)} • Göğüs ${measurementDisplay(state.currentMeasurements.chestCm)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = onOpenProfileSetup) { Text("Profili düzenle") }
             }
@@ -917,6 +1097,8 @@ private fun SettingsScreen(
                     selectedLabel = state.programSource().label
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                Text(state.programSource().description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
                 Text("Önerilen varsayılan", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("${recommendedPreset.title} • ${recommendedPreset.cadenceLabel}", fontWeight = FontWeight.SemiBold)
@@ -929,6 +1111,8 @@ private fun SettingsScreen(
                     options = ProgramStyle.entries.map { it.label to { onSelectProgramStyle(it) } },
                     selectedLabel = state.programStyle().label
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(state.programStyle().description, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Düzey", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1601,10 +1785,23 @@ private fun MetricCard(title: String, value: String, icon: ImageVector, modifier
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, fontWeight = FontWeight.Bold)
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1616,11 +1813,320 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+                            )
+                        )
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+            }
             Spacer(modifier = Modifier.height(12.dp))
             content()
         }
     }
+}
+
+@Composable
+private fun MeasurementInputField(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        trailingIcon = { Text("cm") },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+private fun decimalInputValue(value: Double?): String {
+    if (value == null) return ""
+    return if (value == value.toInt().toDouble()) value.toInt().toString() else "%.1f".format(value).replace('.', ',')
+}
+
+private fun sanitizeDecimalInput(raw: String): String {
+    val filtered = raw.filter { it.isDigit() || it == ',' || it == '.' }.replace('.', ',')
+    val commaIndex = filtered.indexOf(',')
+    return if (commaIndex == -1) filtered else filtered.substring(0, commaIndex + 1) + filtered.substring(commaIndex + 1).replace(",", "")
+}
+
+private fun decimalFromInput(raw: String): Double? =
+    raw.trim().replace(',', '.').takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+
+private fun signedMeasurementDisplay(value: Double, unit: String): String {
+    val sign = if (value > 0) "+" else ""
+    return "$sign${measurementDisplay(value, unit)}"
+}
+
+private fun String.toDisplayDate(): String = parseDate(this)?.format(shortDateFormatter) ?: this
+
+private fun LocalDate.formatDateLabel(): String = format(shortDateFormatter)
+
+@Composable
+private fun MeasurementSnapshotGrid(measurements: BodyMeasurements) {
+    val items = listOf(
+        "Göğüs" to measurementDisplay(measurements.chestCm),
+        "Bel" to measurementDisplay(measurements.waistCm),
+        "Kalça" to measurementDisplay(measurements.hipCm),
+        "Kol" to measurementDisplay(measurements.armCm),
+        "Bacak" to measurementDisplay(measurements.thighCm),
+        "Omuz" to measurementDisplay(measurements.shoulderCm)
+    )
+    items.chunked(2).forEach { rowItems ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            rowItems.forEach { (label, value) ->
+                MetricCard(label, value, Icons.Outlined.TrackChanges, Modifier.weight(1f))
+            }
+            if (rowItems.size == 1) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+    }
+}
+
+@Composable
+private fun RewardGrid(badges: List<Badge>, onSelectBadge: (Badge) -> Unit) {
+    badges.chunked(2).forEachIndexed { index, rowBadges ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            rowBadges.forEach { badge ->
+                BadgeCard(badge = badge, modifier = Modifier.weight(1f), onClick = { onSelectBadge(badge) })
+            }
+            if (rowBadges.size == 1) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+        if (index != badges.chunked(2).lastIndex) {
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+    }
+}
+
+@Composable
+private fun ActivityLogRow(entry: ActivityLogEntry) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Text(entry.accentLabel, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(entry.title, fontWeight = FontWeight.SemiBold)
+                Text(entry.detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendChart(points: List<Pair<LocalDate, Double>>, metric: AnalysisMetric) {
+    val minValue = points.minOf { it.second }
+    val maxValue = points.maxOf { it.second }
+    val range = (maxValue - minValue).takeIf { it > 0.0 } ?: 1.0
+    val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val lineColor = MaterialTheme.colorScheme.primary
+    val pointColor = MaterialTheme.colorScheme.secondary
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+            ) {
+                val horizontalPadding = 18.dp.toPx()
+                val verticalPadding = 18.dp.toPx()
+                val chartWidth = size.width - horizontalPadding * 2
+                val chartHeight = size.height - verticalPadding * 2
+                val xStep = if (points.size <= 1) 0f else chartWidth / (points.size - 1)
+                val path = Path()
+
+                drawLine(
+                    color = outlineColor,
+                    start = androidx.compose.ui.geometry.Offset(horizontalPadding, size.height - verticalPadding),
+                    end = androidx.compose.ui.geometry.Offset(size.width - horizontalPadding, size.height - verticalPadding),
+                    strokeWidth = 3f
+                )
+
+                points.forEachIndexed { index, (_, value) ->
+                    val x = if (points.size == 1) size.width / 2f else horizontalPadding + index * xStep
+                    val normalized = ((value - minValue) / range).toFloat()
+                    val y = size.height - verticalPadding - normalized * chartHeight
+                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+
+                drawPath(
+                    path = path,
+                    color = lineColor,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)
+                )
+
+                points.forEachIndexed { index, (_, value) ->
+                    val x = if (points.size == 1) size.width / 2f else horizontalPadding + index * xStep
+                    val normalized = ((value - minValue) / range).toFloat()
+                    val y = size.height - verticalPadding - normalized * chartHeight
+                    drawCircle(
+                        color = pointColor,
+                        radius = 7f,
+                        center = androidx.compose.ui.geometry.Offset(x, y)
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(points.first().first.formatDateLabel(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(metric.label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Text(points.last().first.formatDateLabel(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InlineIdentityPill(assetPath: String, label: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val imageLoader = rememberBadgeImageLoader()
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(assetPath).crossfade(false).build(),
+                imageLoader = imageLoader,
+                contentDescription = label,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(4.dp)
+            )
+            Text(label, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun NoticeOverlay(notice: InAppNotice?, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = notice != null,
+        enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut(),
+        modifier = modifier
+    ) {
+        val currentNotice = notice ?: return@AnimatedVisibility
+        val context = LocalContext.current
+        val imageLoader = rememberBadgeImageLoader()
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            Row(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (currentNotice.assetPath != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(currentNotice.assetPath).crossfade(false).build(),
+                        imageLoader = imageLoader,
+                        contentDescription = currentNotice.title,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(6.dp)
+                    )
+                } else {
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(currentNotice.title, fontWeight = FontWeight.Bold)
+                    Text(currentNotice.detail, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+private fun buildNoticeForStateChange(oldState: PersistedState, newState: PersistedState): InAppNotice? {
+    val oldProgress = profileProgress(oldState)
+    val newProgress = profileProgress(newState)
+    if (newProgress.level > oldProgress.level) {
+        return InAppNotice(
+            title = "Tebrikler, seviye atladın",
+            detail = "Seviye ${newProgress.level} • ${newProgress.levelTitle}",
+            assetPath = "file:///android_asset/seviye/${newProgress.levelAssetIndex}.png"
+        )
+    }
+    if (newProgress.rankName != oldProgress.rankName) {
+        return InAppNotice(
+            title = "Yeni rütbe açıldı",
+            detail = newProgress.rankName,
+            assetPath = "file:///android_asset/rutbe/${newProgress.rankAssetIndex}.svg"
+        )
+    }
+    val oldBadgeIds = unlockedBadges(oldState).map { it.id }.toSet()
+    val newBadge = unlockedBadges(newState).firstOrNull { it.id !in oldBadgeIds }
+    if (newBadge != null) {
+        return InAppNotice(
+            title = "Yeni rozet kazandın",
+            detail = newBadge.title
+        )
+    }
+    val newAchievementId = newState.unlockedAchievementIds.firstOrNull { it !in oldState.unlockedAchievementIds.toSet() }
+    if (newAchievementId != null) {
+        val achievement = achievementProgressList(newState).firstOrNull { it.id == newAchievementId }
+        if (achievement != null) {
+            return InAppNotice(
+                title = "Yeni başarım açıldı",
+                detail = achievement.title
+            )
+        }
+    }
+    return null
 }
 
 @Composable
@@ -1756,15 +2262,24 @@ private fun CompactIdentityRow(
 }
 
 @Composable
-private fun BadgeCard(badge: Badge) {
+private fun BadgeCard(badge: Badge, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Card(
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(modifier = Modifier.padding(16.dp).width(170.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 150.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(badge.title, fontWeight = FontWeight.Bold)
-            Text(badge.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(badge.title, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(badge.description, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.weight(1f))
+            Text("Dokun ve aç", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
         }
     }
 }

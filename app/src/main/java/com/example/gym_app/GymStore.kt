@@ -35,6 +35,10 @@ class GymStore(context: Context) {
             put("unlockedAchievementIds", JSONArray().apply {
                 unlockedAchievementIds.forEach(::put)
             })
+            put("currentMeasurements", currentMeasurements.toJson())
+            put("measurementHistory", JSONArray().apply {
+                measurementHistory.forEach { entry -> put(entry.toJson()) }
+            })
             put("totalExperience", totalExperience)
             put("lastOpenedOn", lastOpenedOn ?: JSONObject.NULL)
             put("lastSavedAt", lastSavedAt ?: JSONObject.NULL)
@@ -97,10 +101,31 @@ class GymStore(context: Context) {
             activeProgramSource = json.optString("activeProgramSource", ProgramSource.ONERILEN.name),
             customProgramDays = json.optJSONArray("customProgramDays").toWorkoutDays(),
             unlockedAchievementIds = json.optJSONArray("unlockedAchievementIds").toStringList(),
+            currentMeasurements = json.optJSONObject("currentMeasurements").toBodyMeasurements(),
+            measurementHistory = json.optJSONArray("measurementHistory").toMeasurementHistory(),
             totalExperience = json.optInt("totalExperience", 0),
             lastOpenedOn = json.optString("lastOpenedOn", "").ifBlank { null },
             lastSavedAt = json.optString("lastSavedAt", "").ifBlank { null }
         )
+    }
+
+    private fun BodyMeasurements.toJson(): JSONObject {
+        return JSONObject().apply {
+            put("chestCm", chestCm ?: JSONObject.NULL)
+            put("waistCm", waistCm ?: JSONObject.NULL)
+            put("hipCm", hipCm ?: JSONObject.NULL)
+            put("armCm", armCm ?: JSONObject.NULL)
+            put("thighCm", thighCm ?: JSONObject.NULL)
+            put("shoulderCm", shoulderCm ?: JSONObject.NULL)
+        }
+    }
+
+    private fun MeasurementEntry.toJson(): JSONObject {
+        return JSONObject().apply {
+            put("recordedOn", recordedOn)
+            put("weightKg", weightKg)
+            put("measurements", measurements.toJson())
+        }
     }
 
     private fun WorkoutDay.toJson(): JSONObject {
@@ -210,6 +235,34 @@ class GymStore(context: Context) {
         }
     }
 
+    private fun JSONObject?.toBodyMeasurements(): BodyMeasurements {
+        if (this == null) return BodyMeasurements()
+        return BodyMeasurements(
+            chestCm = nullableDouble("chestCm"),
+            waistCm = nullableDouble("waistCm"),
+            hipCm = nullableDouble("hipCm"),
+            armCm = nullableDouble("armCm"),
+            thighCm = nullableDouble("thighCm"),
+            shoulderCm = nullableDouble("shoulderCm")
+        )
+    }
+
+    private fun JSONArray?.toMeasurementHistory(): List<MeasurementEntry> {
+        if (this == null) return emptyList()
+        return buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                add(
+                    MeasurementEntry(
+                        recordedOn = item.optString("recordedOn"),
+                        weightKg = item.optDouble("weightKg", 0.0),
+                        measurements = item.optJSONObject("measurements").toBodyMeasurements()
+                    )
+                )
+            }
+        }
+    }
+
     private fun JSONArray?.toWorkoutDays(): List<WorkoutDay> {
         if (this == null) return emptyList()
         return buildList {
@@ -270,6 +323,9 @@ class GymStore(context: Context) {
             }
         }
     }
+
+    private fun JSONObject.nullableDouble(key: String): Double? =
+        if (has(key) && !isNull(key)) optDouble(key) else null
 
     private companion object {
         const val KEY_STATE = "persisted_state"

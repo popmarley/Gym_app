@@ -8,10 +8,9 @@ import java.time.temporal.IsoFields
 import java.util.Locale
 import kotlin.math.roundToInt
 
-const val VERSION_NAME_LABEL = "1.6"
-const val BUILD_LABEL = "300326,0308"
-const val VERSION_DISPLAY = "Sürüm 1.6 (Derleme 300326,0308)"
-const val DONE_TODO_FILE_NAME = "yapilanlar_ve_yapilacaklar.txt"
+const val VERSION_NAME_LABEL = "1.7"
+const val BUILD_LABEL = "300326,0417"
+const val VERSION_DISPLAY = "Sürüm $VERSION_NAME_LABEL (Derleme $BUILD_LABEL)"
 const val XP_PER_LEVEL = 5_000
 const val MAX_PROFILE_LEVEL = 40
 const val XP_FOR_LEVEL_40 = 195_000
@@ -98,6 +97,41 @@ data class AchievementProgress(
     val isUnlocked: Boolean
 )
 
+data class BodyMeasurements(
+    val chestCm: Double? = null,
+    val waistCm: Double? = null,
+    val hipCm: Double? = null,
+    val armCm: Double? = null,
+    val thighCm: Double? = null,
+    val shoulderCm: Double? = null
+) {
+    fun isEmpty(): Boolean = listOf(chestCm, waistCm, hipCm, armCm, thighCm, shoulderCm).all { it == null }
+}
+
+data class MeasurementEntry(
+    val recordedOn: String,
+    val weightKg: Double,
+    val measurements: BodyMeasurements
+)
+
+data class ActivityLogEntry(
+    val id: String,
+    val recordedOn: String,
+    val title: String,
+    val detail: String,
+    val accentLabel: String
+)
+
+enum class AnalysisMetric(val label: String, val unit: String) {
+    WEIGHT("Kilo", "kg"),
+    CHEST("Göğüs", "cm"),
+    WAIST("Bel", "cm"),
+    HIP("Kalça", "cm"),
+    ARM("Kol", "cm"),
+    THIGH("Bacak", "cm"),
+    SHOULDER("Omuz", "cm")
+}
+
 data class PersistedState(
     val weekKey: String = currentWeekKey(),
     val weeklyProgress: Map<String, DayProgress> = emptyMap(),
@@ -116,12 +150,18 @@ data class PersistedState(
     val activeProgramSource: String = ProgramSource.ONERILEN.name,
     val customProgramDays: List<WorkoutDay> = emptyList(),
     val unlockedAchievementIds: List<String> = emptyList(),
+    val currentMeasurements: BodyMeasurements = BodyMeasurements(),
+    val measurementHistory: List<MeasurementEntry> = emptyList(),
     val totalExperience: Int = 0,
     val lastOpenedOn: String? = null,
     val lastSavedAt: String? = null
 )
 
-data class Badge(val title: String, val description: String)
+data class Badge(
+    val id: String,
+    val title: String,
+    val description: String
+)
 
 data class ReleasePage(
     val versionLabel: String,
@@ -190,8 +230,8 @@ private val competitiveRanks = listOf(
     "Efsanevi Kartal", "Usta Efsanevi Kartal", "Birinci Sınıf Üstün Usta", "Dünyaca Seçkin"
 )
 
-private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-private val shortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("tr", "TR"))
+val dateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+val shortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("tr", "TR"))
 
 fun currentWeekKey(date: LocalDate = LocalDate.now()): String {
     val week = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
@@ -231,7 +271,7 @@ fun PersistedState.programLevel(): ProgramLevel =
 fun PersistedState.programSource(): ProgramSource =
     runCatching { ProgramSource.valueOf(activeProgramSource) }.getOrDefault(ProgramSource.ONERILEN)
 
-private fun parseDate(value: String?): LocalDate? =
+fun parseDate(value: String?): LocalDate? =
     value?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it, dateFormatter) }.getOrNull() }
 
 private fun progressKey(day: WorkoutDay, today: LocalDate = LocalDate.now()): String =
@@ -795,14 +835,23 @@ private data class AchievementDefinition(
 
 private val achievementDefinitions = listOf(
     AchievementDefinition("first_workout", "İlk Seans", "İlk antrenmanını tamamla.", 1) { totalCompletedWorkouts(it) },
-    AchievementDefinition("five_workouts", "Ritim Başladı", "Toplam 5 antrenman tamamla.", 5) { totalCompletedWorkouts(it) },
-    AchievementDefinition("twenty_workouts", "Demir Disiplin", "Toplam 20 antrenman tamamla.", 20) { totalCompletedWorkouts(it) },
+    AchievementDefinition("three_workouts", "Ritim Başladı", "Toplam 3 antrenman tamamla.", 3) { totalCompletedWorkouts(it) },
+    AchievementDefinition("ten_workouts", "İstikrar Kuruldu", "Toplam 10 antrenman tamamla.", 10) { totalCompletedWorkouts(it) },
+    AchievementDefinition("twenty_five_workouts", "Demir Disiplin", "Toplam 25 antrenman tamamla.", 25) { totalCompletedWorkouts(it) },
+    AchievementDefinition("fifty_workouts", "Salon Müdavimi", "Toplam 50 antrenman tamamla.", 50) { totalCompletedWorkouts(it) },
     AchievementDefinition("streak_three", "3 Gün Seri", "3 günlük antrenman serisi yakala.", 3) { streakCount(it) },
     AchievementDefinition("streak_seven", "7 Gün Seri", "7 günlük antrenman serisi yakala.", 7) { streakCount(it) },
     AchievementDefinition("week_complete", "Haftayı Kapat", "Bir haftanın tüm zorunlu antrenmanlarını tamamla.", 100) { weeklyCompletionPercent(it) },
+    AchievementDefinition("volume_10000", "İlk 10 Ton", "Toplam yaklaşık 10.000 kg hacim üret.", 10_000) { estimatedTotalVolume(it) },
+    AchievementDefinition("volume_50000", "Yarım Yüzlük Hacim", "Toplam yaklaşık 50.000 kg hacim üret.", 50_000) { estimatedTotalVolume(it) },
+    AchievementDefinition("measurement_two_logs", "Ölçü Takipçisi", "En az 2 ölçüm kaydı gir.", 2) { it.measurementHistory.size },
+    AchievementDefinition("measurement_five_logs", "Veri Arşivi", "En az 5 ölçüm kaydı gir.", 5) { it.measurementHistory.size },
+    AchievementDefinition("custom_program_live", "Kendi Yolun", "Kişisel program modunu aktif kullan.", 1) { if (it.programSource() == ProgramSource.KISEL) 1 else 0 },
     AchievementDefinition("level_ten", "Seviye 10", "Seviye 10'a ulaş.", 10) { profileProgress(it).level },
     AchievementDefinition("level_twenty", "Seviye 20", "Seviye 20'ye ulaş.", 20) { profileProgress(it).level },
-    AchievementDefinition("level_forty", "Seviye 40", "Maksimum seviye olan 40'a ulaş.", 40) { profileProgress(it).level }
+    AchievementDefinition("level_thirty", "Seviye 30", "Seviye 30'a ulaş.", 30) { profileProgress(it).level },
+    AchievementDefinition("level_forty", "Seviye 40", "Maksimum seviye olan 40'a ulaş.", 40) { profileProgress(it).level },
+    AchievementDefinition("service_medal", "Hizmet Rozeti", "Seviye 40'a ulaşıp rozet kazan.", 1) { profileProgress(it).serviceMedalCount }
 )
 
 fun achievementProgressList(state: PersistedState): List<AchievementProgress> =
@@ -832,20 +881,29 @@ fun PersistedState.withAchievementUnlocks(): PersistedState {
 fun unlockedBadges(state: PersistedState): List<Badge> {
     val progress = profileProgress(state)
     val badges = mutableListOf<Badge>()
-    if (totalCompletedWorkouts(state) >= 1) badges += Badge("İlk Adım", "İlk antrenman kaydını oluşturdun.")
-    if (totalCompletedWorkouts(state) >= 3) badges += Badge("Ritme Giriş", "Üç tamamlanan antrenmanla düzen kurmaya başladın.")
-    if (weeklyCompletionPercent(state) >= 100) badges += Badge("Hafta Tamam", "Bu haftanın tüm zorunlu antrenmanlarını bitirdin.")
-    if (streakCount(state) >= 3) badges += Badge("Devam Zinciri", "En az 3 günlük devam zinciri kurdun.")
-    if (progress.level >= 10) badges += Badge("Çavuş Hattı", "Seviye 10 ve üstüne çıkarak düzenli XP akışı kurdun.")
-    if (progress.level >= 20) badges += Badge("Orta Kademe", "Seviye 20 ile sistemi gerçekten oturttun.")
-    if (progress.level >= 40) badges += Badge("Global General", "Seviye 40'a ulaşıp maksimum profile seviyesini açtın.")
-    if (progress.serviceMedalCount >= 1) badges += Badge("Hizmet Rozeti", progress.serviceMedalLabel)
+    if (totalCompletedWorkouts(state) >= 1) badges += Badge("ilk_adim", "İlk Adım", "İlk antrenman kaydını oluşturdun.")
+    if (totalCompletedWorkouts(state) >= 3) badges += Badge("ritme_giris", "Ritme Giriş", "Üç tamamlanan antrenmanla düzen kurmaya başladın.")
+    if (totalCompletedWorkouts(state) >= 10) badges += Badge("duzen_oturdu", "Düzen Oturdu", "On seans barajını geçtin.")
+    if (totalCompletedWorkouts(state) >= 25) badges += Badge("demir_sabir", "Demir Sabır", "Yirmi beş antrenmanla kalıcı ritim kurdun.")
+    if (weeklyCompletionPercent(state) >= 100) badges += Badge("hafta_tamam", "Hafta Tamam", "Bu haftanın tüm zorunlu antrenmanlarını bitirdin.")
+    if (streakCount(state) >= 3) badges += Badge("devam_zinciri", "Devam Zinciri", "En az 3 günlük devam zinciri kurdun.")
+    if (streakCount(state) >= 7) badges += Badge("istikrar_serisi", "İstikrar Serisi", "7 günlük zincir yakaladın.")
+    if (state.measurementHistory.size >= 2) badges += Badge("olcu_takibi", "Ölçü Takibi", "Ölçü ve kilo takibini düzenli kullanmaya başladın.")
+    if (state.measurementHistory.size >= 5) badges += Badge("veri_arsivi", "Veri Arşivi", "Beşten fazla ölçüm kaydı oluşturdun.")
+    if (estimatedTotalVolume(state) >= 10_000) badges += Badge("hacim_10", "İlk 10 Ton", "Toplam hacimde 10.000 kg sınırını geçtin.")
+    if (estimatedTotalVolume(state) >= 50_000) badges += Badge("hacim_50", "Hacim Ustası", "Toplam hacimde 50.000 kg sınırını geçtin.")
+    if (state.programSource() == ProgramSource.KISEL) badges += Badge("kendi_rota", "Kendi Rotan", "Kişisel program düzenini aktif olarak kullanıyorsun.")
+    if (progress.level >= 10) badges += Badge("cavus_hatti", "Çavuş Hattı", "Seviye 10 ve üstüne çıkarak düzenli XP akışı kurdun.")
+    if (progress.level >= 20) badges += Badge("orta_kademe", "Orta Kademe", "Seviye 20 ile sistemi gerçekten oturttun.")
+    if (progress.level >= 30) badges += Badge("ileri_kademe", "İleri Kademe", "Seviye 30 ile uzun soluklu istikrar kurdun.")
+    if (progress.level >= 40) badges += Badge("kuresel_general", "Küresel General", "Seviye 40'a ulaşıp maksimum profile seviyesini açtın.")
+    if (progress.serviceMedalCount >= 1) badges += Badge("hizmet_rozeti", "Hizmet Rozeti", progress.serviceMedalLabel)
     return badges
 }
 
 fun motivationMessage(state: PersistedState, today: LocalDate = LocalDate.now()): String {
     val preset = selectedProgram(state, today)
-    return when (val weekly = weeklyCompletionPercent(state, today)) {
+    return when (weeklyCompletionPercent(state, today)) {
         0 -> "${preset.title} için ritmi bugün başlat. Küçük ama temiz bir seans, boş haftadan her zaman iyidir."
         in 1..49 -> "Hafta hareketlendi. Bugünkü seans seni yeni XP ve rütbe eşiğine yaklaştırır."
         in 50..99 -> "Düzen kuruldu. Kalan seansları tamamladığında haftalık bonus XP de açılacak."
@@ -854,6 +912,105 @@ fun motivationMessage(state: PersistedState, today: LocalDate = LocalDate.now())
 }
 
 fun weightDisplay(value: Double): String = if (value == value.toInt().toDouble()) "${value.toInt()} kg" else "${"%.1f".format(value).replace('.', ',')} kg"
+
+fun measurementDisplay(value: Double?, unit: String = "cm"): String {
+    if (value == null) return "Veri yok"
+    val safeValue = (value * 10).roundToInt() / 10.0
+    val formatted = if (safeValue == safeValue.toInt().toDouble()) safeValue.toInt().toString() else "%.1f".format(safeValue).replace('.', ',')
+    return "$formatted $unit"
+}
+
+private fun sanitizeMeasurement(value: Double?): Double? {
+    val safe = value?.takeIf { it > 0.0 } ?: return null
+    return (safe * 10).roundToInt() / 10.0
+}
+
+private fun BodyMeasurements.normalized(): BodyMeasurements = BodyMeasurements(
+    chestCm = sanitizeMeasurement(chestCm),
+    waistCm = sanitizeMeasurement(waistCm),
+    hipCm = sanitizeMeasurement(hipCm),
+    armCm = sanitizeMeasurement(armCm),
+    thighCm = sanitizeMeasurement(thighCm),
+    shoulderCm = sanitizeMeasurement(shoulderCm)
+)
+
+fun BodyMeasurements.valueFor(metric: AnalysisMetric): Double? = when (metric) {
+    AnalysisMetric.WEIGHT -> null
+    AnalysisMetric.CHEST -> chestCm
+    AnalysisMetric.WAIST -> waistCm
+    AnalysisMetric.HIP -> hipCm
+    AnalysisMetric.ARM -> armCm
+    AnalysisMetric.THIGH -> thighCm
+    AnalysisMetric.SHOULDER -> shoulderCm
+}
+
+private fun upsertMeasurementEntry(
+    history: List<MeasurementEntry>,
+    recordedOn: LocalDate,
+    weightKg: Double,
+    measurements: BodyMeasurements
+): List<MeasurementEntry> {
+    val entry = MeasurementEntry(recordedOn = recordedOn.toString(), weightKg = weightKg, measurements = measurements.normalized())
+    return (history.filterNot { it.recordedOn == entry.recordedOn } + entry).sortedBy { it.recordedOn }
+}
+
+fun analysisSeriesFor(state: PersistedState, metric: AnalysisMetric): List<Pair<LocalDate, Double>> =
+    state.measurementHistory.mapNotNull { entry ->
+        val value = when (metric) {
+            AnalysisMetric.WEIGHT -> entry.weightKg
+            else -> entry.measurements.valueFor(metric)
+        } ?: return@mapNotNull null
+        parseDate(entry.recordedOn)?.let { it to value }
+    }.sortedBy { it.first }
+
+fun activityLogEntries(state: PersistedState): List<ActivityLogEntry> {
+    val activityEntries = mutableListOf<Pair<LocalDate, Pair<Int, ActivityLogEntry>>>()
+    state.experienceLog.forEachIndexed { index, entry ->
+        val date = parseDate(entry.recordedOn) ?: return@forEachIndexed
+        val sign = if (entry.amount >= 0) "+" else ""
+        activityEntries += date to (
+            (10_000 + index) to ActivityLogEntry(
+                id = "xp_${entry.recordedOn}_$index",
+                recordedOn = entry.recordedOn,
+                title = "Tecrübe hareketi",
+                detail = entry.reason,
+                accentLabel = "$sign${entry.amount} XP"
+            )
+        )
+    }
+    state.completedWorkouts.forEachIndexed { index, workout ->
+        val date = parseDate(workout.completedOn) ?: return@forEachIndexed
+        activityEntries += date to (
+            (20_000 + index) to ActivityLogEntry(
+                id = "workout_${workout.completedOn}_${workout.dayId}_$index",
+                recordedOn = workout.completedOn,
+                title = workout.workoutTitle,
+                detail = "Antrenman tamamlandı.",
+                accentLabel = "${workout.estimatedVolumeKg} kg"
+            )
+        )
+    }
+    state.measurementHistory.forEachIndexed { index, entry ->
+        val date = parseDate(entry.recordedOn) ?: return@forEachIndexed
+        activityEntries += date to (
+            (30_000 + index) to ActivityLogEntry(
+                id = "measurement_${entry.recordedOn}_$index",
+                recordedOn = entry.recordedOn,
+                title = "Ölçüm güncellendi",
+                detail = buildString {
+                    append("Kilo: ${weightDisplay(entry.weightKg)}")
+                    if (!entry.measurements.isEmpty()) {
+                        append(" • Bel: ${measurementDisplay(entry.measurements.waistCm)}")
+                    }
+                },
+                accentLabel = "Ölçüm"
+            )
+        )
+    }
+    return activityEntries
+        .sortedWith(compareByDescending<Pair<LocalDate, Pair<Int, ActivityLogEntry>>> { it.first }.thenByDescending { it.second.first })
+        .map { it.second.second }
+}
 
 fun profileHeadline(state: PersistedState): String = "${state.age} yaş • ${state.genderLabel.lowercase()} • ${state.goalLabel.lowercase()}"
 
@@ -866,12 +1023,15 @@ fun PersistedState.completeProfile(
     goalLabel: String,
     currentWeightKg: Double,
     targetWeightKg: Double,
+    measurements: BodyMeasurements,
     style: ProgramStyle,
     level: ProgramLevel,
     today: LocalDate = LocalDate.now()
 ): PersistedState {
     val safeCurrentWeight = (currentWeightKg.coerceAtLeast(40.0) * 10).roundToInt() / 10.0
     val safeTargetWeight = (targetWeightKg.coerceAtLeast(safeCurrentWeight) * 10).roundToInt() / 10.0
+    val normalizedMeasurements = measurements.normalized()
+    val updatedHistory = upsertMeasurementEntry(measurementHistory, today, safeCurrentWeight, normalizedMeasurements)
     return copy(
         age = age.coerceIn(13, 90),
         genderLabel = genderLabel.ifBlank { "Belirtilmedi" },
@@ -881,25 +1041,14 @@ fun PersistedState.completeProfile(
         profileCompleted = true,
         selectedProgramStyle = style.name,
         selectedProgramLevel = level.name,
-        activeProgramSource = ProgramSource.ONERILEN.name,
+        activeProgramSource = if (programSource() == ProgramSource.KISEL && customProgramDays.isNotEmpty()) ProgramSource.KISEL.name else ProgramSource.ONERILEN.name,
         customProgramDays = customProgramDays,
+        currentMeasurements = normalizedMeasurements,
+        measurementHistory = updatedHistory,
         weekKey = currentWeekKey(today),
         weeklyProgress = emptyMap(),
         lastSavedAt = today.toString()
     )
-}
-
-fun PersistedState.adjustExerciseWeight(exerciseId: String, delta: Double): PersistedState {
-    val current = exerciseWeights[exerciseId] ?: 0.0
-    val updated = (current + delta).coerceAtLeast(0.0)
-    val newWeights = exerciseWeights.toMutableMap()
-    if (updated == 0.0) newWeights.remove(exerciseId) else newWeights[exerciseId] = (updated * 10).roundToInt() / 10.0
-    return copy(exerciseWeights = newWeights, lastSavedAt = LocalDate.now().toString())
-}
-
-fun PersistedState.adjustCurrentWeight(delta: Double): PersistedState {
-    val updated = (currentWeightKg + delta).coerceAtLeast(40.0)
-    return copy(currentWeightKg = (updated * 10).roundToInt() / 10.0, lastSavedAt = LocalDate.now().toString())
 }
 
 fun PersistedState.toggleLowMediaMode(): PersistedState = copy(lowMediaMode = !lowMediaMode, lastSavedAt = LocalDate.now().toString())
@@ -1012,7 +1161,11 @@ fun PersistedState.completeSet(day: WorkoutDay, exerciseId: String, today: Local
         completedSets = currentDay.completedSets + (exerciseId to (currentCount + 1)),
         completedOn = currentDay.completedOn ?: scheduledDateFor(day, today).toString()
     )
-    return copy(weeklyProgress = weeklyProgress + (key to updatedDay), lastSavedAt = today.toString())
+    val updatedState = copy(weeklyProgress = weeklyProgress + (key to updatedDay), lastSavedAt = today.toString())
+    val allSetsCompleted = day.exercises.all { plannedExercise ->
+        (updatedDay.completedSets[plannedExercise.id] ?: 0) >= plannedExercise.setCount
+    }
+    return if (allSetsCompleted) updatedState.completeWorkout(day, today) else updatedState
 }
 
 fun PersistedState.undoSet(day: WorkoutDay, exerciseId: String, today: LocalDate = LocalDate.now()): PersistedState {
@@ -1115,6 +1268,17 @@ fun recommendedWorkout(state: PersistedState, today: LocalDate = LocalDate.now()
 fun releasePages(): List<ReleasePage> = listOf(
     ReleasePage(
         versionLabel = VERSION_DISPLAY,
+        releasedOn = "30 Mart 2026",
+        items = listOf(
+            "Ölçüm geçmişi eklendi; göğüs, bel, kalça, kol, bacak ve omuz verileri tarih bazlı saklanıp analiz ekranında grafikle gösterilir hale geldi.",
+            "İlerleme ekranı daha görsel bir yapıya taşındı; sabit boyutlu rozet kartları, ölçüm grafiği ve sayfalı etkinlik günlüğü eklendi.",
+            "Profil düzenleme ekranına görünür geri dönüş ve detaylı ölçü alanları eklendi; ayarlardan dönünce kullanıcı son olduğu ekrana geri götürülüyor.",
+            "Antrenman ekranında tüm setler tamamlanınca seans otomatik tamamlanmış sayılıyor ve yeni seviye, rozet veya başarım için sağ üstte kayan bildirim gösteriliyor.",
+            "Bugün ekranında aktif program kartına küçük seviye ve rütbe görselleri eklendi; ayarlar ekranındaki gereksiz kilo değiştirme adımı kaldırıldı."
+        )
+    ),
+    ReleasePage(
+        versionLabel = "Sürüm 1.6",
         releasedOn = "30 Mart 2026",
         items = listOf(
             "Başarımlar ekranı eklendi; açılmayan başarımlar Steam tarzı ilerleme mantığıyla görüntülenebilir hale geldi.",

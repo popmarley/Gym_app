@@ -50,4 +50,42 @@ class ExampleUnitTest {
 
         assertEquals(0, completedSets(mondayWorkout, nextWeekState, nextWeekDate))
     }
+
+    @Test
+    fun completing_last_missing_set_auto_completes_workout() {
+        val referenceDate = LocalDate.parse("2026-03-30")
+        val workout = workoutPlan(PersistedState(), referenceDate).first { it.dayOfWeek == DayOfWeek.MONDAY }
+        val almostDone = workout.exercises.dropLast(1).fold(PersistedState()) { currentState, exercise ->
+            (1..exercise.setCount).fold(currentState) { stateAfterSet, _ ->
+                stateAfterSet.completeSet(workout, exercise.id, referenceDate)
+            }
+        }
+        val lastExercise = workout.exercises.last()
+        val completed = (1..lastExercise.setCount).fold(almostDone) { stateAfterSet, _ ->
+            stateAfterSet.completeSet(workout, lastExercise.id, referenceDate)
+        }
+
+        assertTrue(isWorkoutCompleted(completed, workout, referenceDate))
+        assertEquals(1, totalCompletedWorkouts(completed))
+    }
+
+    @Test
+    fun complete_profile_records_measurement_history_for_same_day() {
+        val referenceDate = LocalDate.parse("2026-03-30")
+        val updated = PersistedState().completeProfile(
+            age = 26,
+            genderLabel = "Erkek",
+            goalLabel = "Kas / kütle artışı",
+            currentWeightKg = 59.4,
+            targetWeightKg = 70.0,
+            measurements = BodyMeasurements(chestCm = 95.0, waistCm = 77.5, armCm = 31.0),
+            style = ProgramStyle.FULL_BODY,
+            level = ProgramLevel.BASLANGIC,
+            today = referenceDate
+        )
+
+        assertEquals(1, updated.measurementHistory.size)
+        assertEquals(95.0, updated.measurementHistory.first().measurements.chestCm ?: 0.0, 0.0)
+        assertEquals(77.5, updated.measurementHistory.first().measurements.waistCm ?: 0.0, 0.0)
+    }
 }
